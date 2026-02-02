@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import {
   calculatePluginsToInstall,
   installPlugins,
@@ -509,6 +509,10 @@ describe("calculatePluginConfigurationDiff", () => {
 });
 
 describe("calculatePluginConfigurationsDiff", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should return undefined when no plugins desired", () => {
     // Arrange
     const currentMap: Map<string, PluginConfigurationSchema> = new Map([
@@ -680,9 +684,13 @@ describe("calculatePluginConfigurationsDiff", () => {
 
   it("should apply resolved _file values in configuration diff", async () => {
     // Arrange
-    const readFileSpy: ReturnType<typeof vi.spyOn> = vi
+    const readFileSpy = vi
       .spyOn(fs.promises, "readFile")
-      .mockResolvedValueOnce("resolved-api-key\n");
+      .mockImplementation((path: unknown) => {
+        if (path === "/run/secrets/api-key")
+          return Promise.resolve("resolved-api-key\n");
+        return Promise.reject(new Error(`unexpected path: ${path}`));
+      });
     const currentMap: Map<string, PluginConfigurationSchema> = new Map([
       [
         "SomePlugin",
@@ -724,9 +732,13 @@ describe("calculatePluginConfigurationsDiff", () => {
 
   it("should apply resolved _file values in nested configuration diff", async () => {
     // Arrange
-    const readFileSpy: ReturnType<typeof vi.spyOn> = vi
+    const readFileSpy = vi
       .spyOn(fs.promises, "readFile")
-      .mockResolvedValueOnce("secret-token\n");
+      .mockImplementation((path: unknown) => {
+        if (path === "/run/secrets/trakt-token")
+          return Promise.resolve("secret-token\n");
+        return Promise.reject(new Error(`unexpected path: ${path}`));
+      });
     const currentMap: Map<string, PluginConfigurationSchema> = new Map([
       [
         "Trakt",

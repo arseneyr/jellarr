@@ -1,5 +1,5 @@
 import { promises as fs } from "fs";
-import { FileRefType, type FileRef } from "../types/config/plugins";
+import { FileRefType, type FileRef } from "../types/config/file-refs";
 
 async function resolveValue(value: unknown): Promise<unknown> {
   const parsed = FileRefType.safeParse(value);

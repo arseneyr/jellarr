@@ -37,7 +37,11 @@ import {
   applyPluginConfigurations,
   getPluginConfigurationSchemaByName,
 } from "../apply/plugins";
-import type { PluginConfig, PluginConfigList } from "../types/config/plugins";
+import type {
+  PluginConfig,
+  PluginConfigList,
+  ResolvedPluginConfigList,
+} from "../types/config/plugins";
 import { resolveFileReferences } from "../lib/file-refs";
 
 export async function runPipeline(path: string): Promise<void> {
@@ -155,7 +159,22 @@ export async function runPipeline(path: string): Promise<void> {
   }
 
   if (cfg.plugins) {
-    const resolvedPlugins: PluginConfigList = await Promise.all(
+    let installedPlugins: PluginInfoSchema[] =
+      await jellyfinClient.getPlugins();
+
+    const pluginsToInstall: PluginConfig[] | undefined =
+      calculatePluginsToInstall(installedPlugins, cfg.plugins);
+
+    if (pluginsToInstall) {
+      console.log("→ installing plugins");
+      await installPlugins(jellyfinClient, pluginsToInstall);
+      console.log("✓ installed plugins");
+      installedPlugins = await jellyfinClient.getPlugins();
+    } else {
+      console.log("✓ plugins already up to date");
+    }
+
+    const resolvedPlugins: ResolvedPluginConfigList = await Promise.all(
       cfg.plugins.map(async (plugin: PluginConfig) => {
         if (plugin.configuration) {
           return {
@@ -166,21 +185,6 @@ export async function runPipeline(path: string): Promise<void> {
         return plugin;
       }),
     );
-
-    let installedPlugins: PluginInfoSchema[] =
-      await jellyfinClient.getPlugins();
-
-    const pluginsToInstall: PluginConfig[] | undefined =
-      calculatePluginsToInstall(installedPlugins, resolvedPlugins);
-
-    if (pluginsToInstall) {
-      console.log("→ installing plugins");
-      await installPlugins(jellyfinClient, pluginsToInstall);
-      console.log("✓ installed plugins");
-      installedPlugins = await jellyfinClient.getPlugins();
-    } else {
-      console.log("✓ plugins already up to date");
-    }
 
     const pluginConfigurationsToUpdate:
       | Map<string, BasePluginConfigurationSchema>

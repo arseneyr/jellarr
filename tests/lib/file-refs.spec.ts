@@ -170,6 +170,29 @@ describe("resolveFileReferences", () => {
     });
   });
 
+  it("should resolve _file references inside objects within arrays", async () => {
+    // Arrange
+    mockReadFile.mockResolvedValueOnce("deep-secret\n");
+    const input: Record<string, unknown> = {
+      Users: [
+        { AccessToken: { _file: "/run/secrets/token" }, Name: "alice" },
+        { AccessToken: "inline-token", Name: "bob" },
+      ],
+    };
+
+    // Act
+    const result: Record<string, unknown> = await resolveFileReferences(input);
+
+    // Assert
+    expect(result).toStrictEqual({
+      Users: [
+        { AccessToken: "deep-secret", Name: "alice" },
+        { AccessToken: "inline-token", Name: "bob" },
+      ],
+    });
+    expect(mockReadFile).toHaveBeenCalledWith("/run/secrets/token", "utf8");
+  });
+
   it("should return empty object for empty input", async () => {
     // Arrange
     const input: Record<string, unknown> = {};
