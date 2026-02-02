@@ -37,7 +37,8 @@ import {
   applyPluginConfigurations,
   getPluginConfigurationSchemaByName,
 } from "../apply/plugins";
-import type { PluginConfig } from "../types/config/plugins";
+import type { PluginConfig, PluginConfigList } from "../types/config/plugins";
+import { resolveFileReferences } from "../lib/file-refs";
 
 export async function runPipeline(path: string): Promise<void> {
   const raw: string = await fs.readFile(path, "utf8");
@@ -154,11 +155,23 @@ export async function runPipeline(path: string): Promise<void> {
   }
 
   if (cfg.plugins) {
+    const resolvedPlugins: PluginConfigList = await Promise.all(
+      cfg.plugins.map(async (plugin: PluginConfig) => {
+        if (plugin.configuration) {
+          return {
+            ...plugin,
+            configuration: await resolveFileReferences(plugin.configuration),
+          };
+        }
+        return plugin;
+      }),
+    );
+
     let installedPlugins: PluginInfoSchema[] =
       await jellyfinClient.getPlugins();
 
     const pluginsToInstall: PluginConfig[] | undefined =
-      calculatePluginsToInstall(installedPlugins, cfg.plugins);
+      calculatePluginsToInstall(installedPlugins, resolvedPlugins);
 
     if (pluginsToInstall) {
       console.log("→ installing plugins");
@@ -176,7 +189,7 @@ export async function runPipeline(path: string): Promise<void> {
         jellyfinClient,
         installedPlugins,
       ),
-      cfg.plugins,
+      resolvedPlugins,
     );
 
     if (pluginConfigurationsToUpdate) {
